@@ -44,7 +44,7 @@ async def test_lowlevel_server_tool_annotations():
                     "required": ["message"],
                 },
                 annotations=ToolAnnotations(
-                    title="Echo Tool", 
+                    title="Echo Tool",
                     readOnlyHint=True,
                 ),
             )
@@ -57,20 +57,14 @@ async def test_lowlevel_server_tool_annotations():
         JSONRPCMessage
     ](10)
 
-    # Track results for assertion
-    tools_result = None
-
     # Message handler for client
     async def message_handler(
-        message: RequestResponder[ServerRequest, ClientResult] | ServerNotification | Exception,
+        message: RequestResponder[ServerRequest, ClientResult]
+        | ServerNotification
+        | Exception,
     ) -> None:
-        nonlocal tools_result
         if isinstance(message, Exception):
             raise message
-        if isinstance(message, RequestResponder):
-            result = message.message.result
-            if isinstance(result, dict) and "tools" in result:
-                tools_result = ListToolsResult.model_validate(result)
 
     # Server task
     async def run_server():
@@ -90,9 +84,7 @@ async def test_lowlevel_server_tool_annotations():
 
                 async def handle_messages():
                     async for message in server_session.incoming_messages:
-                        await server._handle_message(
-                            message, server_session, {}, False
-                        )
+                        await server._handle_message(message, server_session, {}, False)
 
                 tg.start_soon(handle_messages)
                 await anyio.sleep_forever()
@@ -100,7 +92,7 @@ async def test_lowlevel_server_tool_annotations():
     # Run the test
     async with anyio.create_task_group() as tg:
         tg.start_soon(run_server)
-        
+
         async with ClientSession(
             server_to_client_receive,
             client_to_server_send,
@@ -108,14 +100,13 @@ async def test_lowlevel_server_tool_annotations():
         ) as client_session:
             # Initialize the session
             await client_session.initialize()
-            
+
             # List tools
             tools_result = await client_session.list_tools()
-            
-            
+
             # Cancel the server task
             tg.cancel_scope.cancel()
-    
+
     # Verify results
     assert tools_result is not None
     assert len(tools_result.tools) == 1
